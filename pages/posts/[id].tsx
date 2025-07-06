@@ -118,7 +118,7 @@ const Post = ({
           {postProperties.Name.title[0].plain_text}
         </h1>
         <p className="text-gray-200 text-xs sm:text-md">
-          {new Date(postProperties.Created.created_time).toLocaleDateString(
+          {new Date(postProperties["Created time"]).toLocaleDateString(
             "en-EN",
             { year: "numeric", month: "long", day: "numeric" }
           )}

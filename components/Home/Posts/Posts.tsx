@@ -28,7 +28,7 @@ const PostCard = ({ post }: { post: { [key: string]: any } }) => {
         }}
         className={`${styles.post} relative cursor-pointer rounded-md flex items-center justify-center p-6 bg-pink-300 text-lg leading-5`}
       >
-        {post.properties.Name.title[0].plain_text}
+        {post.properties.Name.plain_text}
         <span
           style={{
             position: "absolute",

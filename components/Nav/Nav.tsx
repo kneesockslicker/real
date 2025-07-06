@@ -11,7 +11,7 @@ const Nav = ({
   return (
     <nav className="flex justify-between items-center p-6 sm:p-10 sm:px-14 sm:w-5/6 md:w-1/2 w-11/12 z-20">
       <Link href="/">
-        <a className="font-medium text-lg">tnmyk</a>
+        <a className="font-medium text-lg">Fermin Lim</a>
       </Link>
       <button
         onClick={() => {
