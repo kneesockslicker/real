@@ -17,7 +17,16 @@ export async function getStaticProps() {
   const notion = new Client({ auth: process.env.NOTION_KEY });
   const postsResponse = await notion.databases.query({
     database_id: process.env.NOTION_POSTS_DATABASE_ID!,
-    
+    filter: {
+      and: [
+        {
+          property: "Status",
+          status: {
+            equals: "Published"
+          },
+        },
+      ],
+    },
   });
 
   return {
