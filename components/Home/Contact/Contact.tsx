@@ -7,10 +7,10 @@ const Contact = () => {
       <a
         target="_blank"
         rel="noreferrer"
-        href={userData.twitter}
+        href={userData.linkedin}
         className="bg-white text-gray-800 font-bold text-lg pt-3 pb-2 px-5 rounded-full "
       >
-        dm me on twitter
+        dm me on linkedin
       </a>
       <div className="text-sm mt-3 text-gray-200">
         open for hackathons, projects or a chat :)

@@ -7,5 +7,6 @@ const userData = {
     </>
   ),
   github: "https://github.com/kneesockslicker",
+  linkedin: "https://sg.linkedin.com/in/fermin-lim"
 };
 export default userData;
