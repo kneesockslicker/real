@@ -4,8 +4,9 @@ import Head from "next/head";
 import { useEffect } from "react";
 
 let listNumber = 0;
-const Block = ({ children, block }: { children: String; block: any }) => {
-  const { annotations, type, checked } = block;
+
+const Block = ({ children, block }: { children: string; block: any }) => {
+  const { annotations = {}, type, checked } = block;
   const style = {
     fontStyle: annotations.italic ? "italic" : "",
     fontWeight: annotations.bold ? "800" : "",
@@ -45,7 +46,7 @@ const Block = ({ children, block }: { children: String; block: any }) => {
     case "to_do":
       return (
         <div className={className} style={style}>
-          <input type="checkbox" checked={checked} />
+          <input type="checkbox" checked={checked} readOnly />
           <span
             style={{
               marginLeft: "0.4rem",
@@ -72,7 +73,8 @@ const Block = ({ children, block }: { children: String; block: any }) => {
       return <div className="ml-1">&#8226; {children}</div>;
 
     default:
-      console.log(block);
+      // console.log(block);
+      break;
   }
   return (
     <div className={className} style={style}>
@@ -81,14 +83,41 @@ const Block = ({ children, block }: { children: String; block: any }) => {
   );
 };
 
+const TableBlock = ({ rows }: { rows: string[][] }) => {
+  if (!rows || rows.length === 0) return null;
+  return (
+    <table className="my-4 border border-gray-500 w-full">
+      <tbody>
+        {rows.map((row, i) => (
+          <tr key={i}>
+            {row.map((cell, j) => (
+              <td key={j} className="border border-gray-500 px-2 py-1">
+                {cell}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+};
+
+const ImageBlock = ({ block }: { block: { [key: string]: any } }) => {
+  return (
+    <>
+      <img src={block.image.file.url} width={"50%"} className="mx-auto my-4" />
+    </>
+  );
+};
+
 const Post = ({
   postData,
-  postProperties=postData.properties,
+  postProperties = postData.properties,
   pageId,
 }: {
-  postData: { [key: string]: any };
+  postData: { [key: string]: any }[];
   postProperties: { [key: string]: any };
-  pageId: String;
+  pageId: string;
 }) => {
   useEffect(() => {
     const update = async () => {
@@ -107,39 +136,44 @@ const Post = ({
       }
     };
     update();
-  }, []);
+  }, [pageId]);
+
   return (
     <>
       <Head>
-        <title>{postProperties.Name.title[0].plain_text}</title>
+        <title>
+          {postProperties.Name.title[0]?.plain_text || "Untitled Post"}
+        </title>
       </Head>
       <div className="mt-6 sm:ml-12 sm:mt-12 flex flex-col gap-y-1 w-10/12  sm:w-3/5 md:w-1/2">
         <h1 className="text-3xl sm:text-3xl">
-          {postProperties.Name.title[0].plain_text}
+          {postProperties.Name.title[0]?.plain_text || "Untitled Post"}
         </h1>
         <p className="text-gray-200 text-xs sm:text-md">
-          {new Date(postProperties['Created time']['created_time']).toLocaleDateString(
-            "en-EN",
-            { year: "numeric", month: "long", day: "numeric" }
-          )}
-          <span className="ml-6">views: {postProperties.Views.number + 1}</span>
+          {new Date(
+            postProperties["Created time"]["created_time"]
+          ).toLocaleDateString("en-EN", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+          <span className="ml-6">
+            views: {(postProperties.Views.number ?? 0) + 1}
+          </span>
         </p>
-
         <br />
-        {postData.map((x: any, index: any) => {
+        {postData.map((x: any, index: number) => {
           if (x.type === "image") {
-            return <ImageBlock block={x} />;
+            return <ImageBlock block={x} key={index} />;
+          }
+          if (x.type === "table") {
+            return <TableBlock rows={x.rows} key={index} />;
           }
           return (
-            <Block
-              key={index}
-              block={x}
-              // annotations={x.annotations} type={x.type}
-            >
+            <Block key={index} block={x}>
               {x.text}
             </Block>
           );
-          //
         })}
       </div>
     </>
@@ -149,17 +183,14 @@ const Post = ({
 export default Post;
 
 export async function getStaticPaths() {
-  //   const paths = getAllPostIds();
   const notion = new Client({ auth: process.env.NOTION_KEY });
   const postsResponse = await notion.databases.query({
     database_id: process.env.NOTION_POSTS_DATABASE_ID!,
   });
   const results: any = postsResponse.results;
   const paths = results.map((res: { [key: string]: any }) => {
-    console.log(res.id);
     return {
       params: {
-        // id: res.properties.Name.title[0].plain_text.split(" ").join("-"),
         id: res.id,
       },
     };
@@ -181,38 +212,56 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
   const pageResponse: any = await notion.pages.retrieve({ page_id: pageId });
   let postProperties = pageResponse.properties;
 
-  const results = response.results;
-  const postData = results.map((x: any) => {
-    const type = x.type;
-    if (type === "image") {
-      return x;
-    }
-    if (!x[type].text[0])
+  // Helper to fetch table rows
+  async function fetchTableRows(tableBlockId: string) {
+    const rowsResponse = await notion.blocks.children.list({
+      block_id: tableBlockId,
+      page_size: 100,
+    });
+    return rowsResponse.results
+      .filter((row: any) => row.type === "table_row")
+      .map((row: any) => {
+        return row.table_row.cells.map((cell: any) =>
+          cell.map((rich: any) => rich.plain_text).join("")
+        );
+      });
+  }
+
+  // Map blocks, handling tables
+  const results = await Promise.all(
+    response.results.map(async (x: any) => {
+      const type = x.type;
+      if (type === "image") {
+        return x;
+      }
+      if (type === "table") {
+        // Fetch table rows
+        const rows = await fetchTableRows(x.id);
+        return {
+          type: "table",
+          rows,
+        };
+      }
+      if (!x[type].text || !x[type].text[0])
+        return {
+          type: "break",
+          annotations: {},
+        };
       return {
-        type: "break",
-        annotations: {},
+        type,
+        text: x[type].text[0].plain_text,
+        annotations: x[type].text[0].annotations,
+        checked: x[type].checked ? true : false,
       };
-    return {
-      type,
-      text: x[type].text[0].plain_text,
-      annotations: x[type].text[0].annotations,
-      checked: x[type].checked ? true : false,
-    };
-  });
+    })
+  );
+
   return {
     props: {
       postProperties: postProperties,
       pageId: pageId,
-      postData: postData,
+      postData: results,
     },
     revalidate: 10,
   };
-};
-
-const ImageBlock = ({ block }: { block: { [key: string]: any } }) => {
-  return (
-    <>
-      <img src={block.image.file.url} width={"50%"} className="mx-auto my-4" />
-    </>
-  );
 };
