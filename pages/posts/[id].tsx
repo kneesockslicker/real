@@ -5,16 +5,31 @@ import { useEffect } from "react";
 
 let listNumber = 0;
 
-const Block = ({ children, block }: { children: string; block: any }) => {
-  const { annotations = {}, type, checked } = block;
-  const style = {
-    fontStyle: annotations.italic ? "italic" : "",
-    fontWeight: annotations.bold ? "800" : "",
-    color: annotations.color,
-    textDecoration: `${annotations.underline ? "underline" : ""} ${
-      annotations.strikethrough ? "line-through" : ""
-    }`,
-  };
+// Helper to render Notion rich text with annotations (bold, italic, etc.)
+const renderRichText = (richTextArr: any[]) => {
+  return richTextArr.map((fragment, idx) => {
+    const { annotations, plain_text } = fragment;
+    const style: React.CSSProperties = {
+      fontWeight: annotations.bold ? "bold" : undefined,
+      fontStyle: annotations.italic ? "italic" : undefined,
+      textDecoration: [
+        annotations.underline ? "underline" : "",
+        annotations.strikethrough ? "line-through" : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+      color: annotations.color && annotations.color !== "default" ? annotations.color : undefined,
+    };
+    return (
+      <span key={idx} style={style}>
+        {plain_text}
+      </span>
+    );
+  });
+};
+
+const Block = ({ block }: { block: any }) => {
+  const { type, checked, rich_text = [], annotations = {} } = block;
   let className;
 
   switch (type) {
@@ -22,7 +37,7 @@ const Block = ({ children, block }: { children: string; block: any }) => {
       listNumber++;
       return (
         <div className="ml-1">
-          <span className="text-sm">{listNumber / 2}.</span> {children}
+          <span className="text-sm">{listNumber / 2}.</span> {renderRichText(rich_text)}
         </div>
       );
     default:
@@ -45,7 +60,7 @@ const Block = ({ children, block }: { children: string; block: any }) => {
       break;
     case "to_do":
       return (
-        <div className={className} style={style}>
+        <div className={className}>
           <input type="checkbox" checked={checked} readOnly />
           <span
             style={{
@@ -54,31 +69,31 @@ const Block = ({ children, block }: { children: string; block: any }) => {
               textDecoration: checked ? "line-through" : "",
             }}
           >
-            {block.text}
+            {renderRichText(rich_text)}
           </span>
         </div>
       );
     case "code":
       className = "font-mono bg-gray-800 rounded p-2 mb-5";
       return (
-        <div className={className} style={style}>
-          {children.split("\n").map((exp, index) => {
-            return <div key={index}>{exp}</div>;
-          })}
+        <div className={className}>
+          {rich_text.length > 0
+            ? rich_text[0].plain_text.split("\n").map((exp: string, index: number) => (
+                <div key={index}>{exp}</div>
+              ))
+            : null}
         </div>
       );
     case "paragraph":
       break;
     case "bulleted_list_item":
-      return <div className="ml-1">&#8226; {children}</div>;
-
+      return <div className="ml-1">&#8226; {renderRichText(rich_text)}</div>;
     default:
-      // console.log(block);
       break;
   }
   return (
-    <div className={className} style={style}>
-      {children}
+    <div className={className}>
+      {renderRichText(rich_text)}
     </div>
   );
 };
@@ -169,11 +184,7 @@ const Post = ({
           if (x.type === "table") {
             return <TableBlock rows={x.rows} key={index} />;
           }
-          return (
-            <Block key={index} block={x}>
-              {x.text}
-            </Block>
-          );
+          return <Block key={index} block={x} />;
         })}
       </div>
     </>
@@ -227,7 +238,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       });
   }
 
-  // Map blocks, handling tables
+  // Map blocks, handling tables and rich text
   const results = await Promise.all(
     response.results.map(async (x: any) => {
       const type = x.type;
@@ -242,15 +253,15 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
           rows,
         };
       }
-      if (!x[type].text || !x[type].text[0])
+      // Handle blocks with rich_text
+      if (!x[type]?.text || x[type].text.length === 0)
         return {
           type: "break",
           annotations: {},
         };
       return {
         type,
-        text: x[type].text[0].plain_text,
-        annotations: x[type].text[0].annotations,
+        rich_text: x[type].text, // pass all rich text fragments
         checked: x[type].checked ? true : false,
       };
     })
