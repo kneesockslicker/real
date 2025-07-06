@@ -1,9 +1,9 @@
 const userData = {
   name: "Fermin Lim",
-  bio: "fullstack dev",
+  bio: "Major in Software Engineering",
   quote: (
     <>
-      I like <span className="text-red-200">building.</span>
+      I like <span className="text-red-200">building</span> & <span className="text-red-200">exploring.</span>
     </>
   ),
   github: "https://github.com/kneesockslicker",

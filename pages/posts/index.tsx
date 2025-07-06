@@ -21,7 +21,7 @@ export async function getStaticProps() {
       and: [
         {
           property: "Status",
-          status: {
+          Status: {
             equals: "Published"
           },
         },
