@@ -23,9 +23,9 @@ const Home = ({
       </Head>
       <Profile />
       <div className="mt-12 text-xl mb-20">{userData.quote}</div>
-      <span className="text-sm mb-3">experience</span>
+      <span className="text-sm mb-3">Experience</span>
       <Experience />
-      <span className="text-sm mt-16 mb-3">posts</span>
+      <span className="text-sm mt-16 mb-3">Posts</span>
       <Posts posts={posts} />
       <Link href="/posts">
         <a className="mt-6 text-gray-300 flex items-center gap-x-2 underline">
@@ -48,6 +48,7 @@ const Home = ({
 export default Home;
 
 export async function getStaticProps() {
+  console.log("✅ getStaticProps is running!");
   const notion = new Client({ auth: process.env.NOTION_KEY });
   const postsResponse = await notion.databases.query({
     database_id: process.env.NOTION_POSTS_DATABASE_ID!,

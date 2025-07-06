@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BsEye } from "react-icons/bs";
 import styles from "./Posts.module.css";
 const Posts = ({ posts }: { posts: Array<{ [key: string]: any }> }) => {
+  console.log(posts);
   return (
     <div
       style={{ maxWidth: "60%" }}
@@ -17,6 +18,7 @@ const Posts = ({ posts }: { posts: Array<{ [key: string]: any }> }) => {
 export default Posts;
 
 const PostCard = ({ post }: { post: { [key: string]: any } }) => {
+  console.log(post);
   return (
     <Link href={`/posts/${post.id}`}>
       <div
@@ -28,7 +30,7 @@ const PostCard = ({ post }: { post: { [key: string]: any } }) => {
         }}
         className={`${styles.post} relative cursor-pointer rounded-md flex items-center justify-center p-6 bg-pink-300 text-lg leading-5`}
       >
-        {post.properties.Name.plain_text}
+        {post.properties.Name.title[0].plain_text}
         <span
           style={{
             position: "absolute",
