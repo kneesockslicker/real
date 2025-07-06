@@ -127,7 +127,7 @@ const ImageBlock = ({ block }: { block: { [key: string]: any } }) => {
 
 const Post = ({
   postData,
-  postProperties = postData.properties,
+  postProperties,
   pageId,
 }: {
   postData: { [key: string]: any }[];
