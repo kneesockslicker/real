@@ -37,11 +37,11 @@ const Profile = () => {
                   <BsTwitter />
                 </a>
               )} */}
-              {userData.github && (
+              {/* {userData.github && (
                 <a href={userData.github} target="_blank" rel="noreferrer">
                   <AiFillGithub />
                 </a>
-              )}
+              )} */}
               {/* {userData.discord && (
                 <a href={userData.discord} target="_blank" rel="noreferrer">
                   <SiDiscord />

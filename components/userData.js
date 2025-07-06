@@ -6,7 +6,7 @@ const userData = {
       I like <span className="text-red-200">building.</span>
     </>
   ),
-  github: "https://github.com/kneesockslicker",
+  // github: "https://github.com/kneesockslicker",
   linkedIn: "https://sg.linkedin.com/in/fermin-lim"
 };
 export default userData;
