@@ -7,7 +7,7 @@ const Contact = () => {
       <a
         target="_blank"
         rel="noreferrer"
-        href={userData.linkedin}
+        href={userData.linkedIn}
         className="bg-white text-gray-800 font-bold text-lg pt-3 pb-2 px-5 rounded-full "
       >
         dm me on linkedin
