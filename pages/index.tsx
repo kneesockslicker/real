@@ -48,7 +48,6 @@ const Home = ({
 export default Home;
 
 export async function getStaticProps() {
-  console.log("✅ getStaticProps is running!");
   const notion = new Client({ auth: process.env.NOTION_KEY });
   const postsResponse = await notion.databases.query({
     database_id: process.env.NOTION_POSTS_DATABASE_ID!,
@@ -57,7 +56,7 @@ export async function getStaticProps() {
         {
           property: "Tags",
           multi_select: {
-            contains: "homepage",
+            contains: "Homepage",
           },
         },
       ],
@@ -70,7 +69,7 @@ export async function getStaticProps() {
         {
           property: "Tags",
           multi_select: {
-            contains: "homepage",
+            contains: "Homepage",
           },
         },
       ],
