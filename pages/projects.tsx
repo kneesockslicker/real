@@ -11,10 +11,10 @@ const ProjectsPage = ({
   return (
     <>
       <Head>
-        <title>projects</title>
+        <title>Projects</title>
       </Head>
       <div className="flex flex-col w-full items-center mt-8">
-        <h1 className="mb-3">projects</h1>
+        <h1 className="mb-3">Projects</h1>
         <Projects projects={projects} />
       </div>
       <a
