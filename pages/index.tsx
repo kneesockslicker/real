@@ -32,13 +32,13 @@ const Home = ({
           see more posts <BsArrowRight />
         </a>
       </Link>
-      <span className="text-sm mt-24 mb-3">projects</span>
+      {/* <span className="text-sm mt-24 mb-3">projects</span>
       <Projects projects={projects} />
       <Link href="/projects">
         <a className="mt-4 text-gray-300 flex items-center gap-x-2 underline">
           see more projects <BsArrowRight />
         </a>
-      </Link>
+      </Link> */}
       <Contact />
       <div className="border-t-2 h-6 w-4/5 sm:w-5/12 mt-28 border-neutral-600" />
     </>
