@@ -18,7 +18,10 @@ const renderRichText = (richTextArr: any[]) => {
       ]
         .filter(Boolean)
         .join(" "),
-      color: annotations.color && annotations.color !== "default" ? annotations.color : undefined,
+      color:
+        annotations.color && annotations.color !== "default"
+          ? annotations.color
+          : undefined,
     };
     return (
       <span key={idx} style={style}>
@@ -37,7 +40,8 @@ const Block = ({ block }: { block: any }) => {
       listNumber++;
       return (
         <div className="ml-1">
-          <span className="text-sm">{listNumber / 2}.</span> {renderRichText(rich_text)}
+          <span className="text-sm">{listNumber / 2}.</span>{" "}
+          {renderRichText(rich_text)}
         </div>
       );
     default:
@@ -91,11 +95,7 @@ const Block = ({ block }: { block: any }) => {
     default:
       break;
   }
-  return (
-    <div className={className}>
-      {renderRichText(rich_text)}
-    </div>
-  );
+  return <div className={className}>{renderRichText(rich_text)}</div>;
 };
 
 const TableBlock = ({ rows }: { rows: string[][] }) => {
@@ -122,6 +122,66 @@ const ImageBlock = ({ block }: { block: { [key: string]: any } }) => {
     <>
       <img src={block.image.file.url} width={"50%"} className="mx-auto my-4" />
     </>
+  );
+};
+
+const VideoBlock = ({ block }: { block: { [key: string]: any } }) => {
+  if (!block.url) return null;
+  // Check for YouTube/Vimeo and embed via iframe
+  const isYouTube =
+    block.url.includes("youtube.com") || block.url.includes("youtu.be");
+  const isVimeo = block.url.includes("vimeo.com");
+  if (isYouTube) {
+    // Convert to embed URL
+    let embedUrl = block.url;
+    if (block.url.includes("watch?v=")) {
+      embedUrl = block.url.replace("watch?v=", "embed/");
+    } else if (block.url.includes("youtu.be/")) {
+      embedUrl = block.url.replace("youtu.be/", "youtube.com/embed/");
+    }
+    return (
+      <div className="my-4 flex justify-center">
+        <iframe
+          src={embedUrl}
+          width="560"
+          height="315"
+          frameBorder="0"
+          allow="autoplay; encrypted-media"
+          allowFullScreen
+          title="YouTube Video"
+        />
+      </div>
+    );
+  }
+  if (isVimeo) {
+    // Convert to embed URL
+    let embedUrl = block.url;
+    if (block.url.includes("vimeo.com/")) {
+      const videoId = block.url.split("vimeo.com/")[1];
+      embedUrl = `https://player.vimeo.com/video/${videoId}`;
+    }
+    return (
+      <div className="my-4 flex justify-center">
+        <iframe
+          src={embedUrl}
+          width="560"
+          height="315"
+          frameBorder="0"
+          allow="autoplay; fullscreen"
+          allowFullScreen
+          title="Vimeo Video"
+        />
+      </div>
+    );
+  }
+  // Otherwise, use HTML5 video tag
+  return (
+    <div className="my-4 flex justify-center">
+      <video controls width="70%">
+        <source src={block.url} />
+        Your browser does not support the video tag.
+      </video>
+    </div>
   );
 };
 
@@ -181,6 +241,9 @@ const Post = ({
           if (x.type === "image") {
             return <ImageBlock block={x} key={index} />;
           }
+          if (x.type === "video") {
+            return <VideoBlock block={x} key={index} />;
+          }
           if (x.type === "table") {
             return <TableBlock rows={x.rows} key={index} />;
           }
@@ -238,15 +301,28 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       });
   }
 
-  // Map blocks, handling tables and rich text
+  // Map blocks, handling tables, images, videos, and rich text
   const results = await Promise.all(
     response.results.map(async (x: any) => {
       const type = x.type;
       if (type === "image") {
         return x;
       }
+      if (type === "video") {
+        // Support both file and external videos
+        const url =
+          x.video.type === "file"
+            ? x.video.file.url
+            : x.video.type === "external"
+            ? x.video.external.url
+            : null;
+        return {
+          type: "video",
+          url,
+          caption: x.video.caption,
+        };
+      }
       if (type === "table") {
-        // Fetch table rows
         const rows = await fetchTableRows(x.id);
         return {
           type: "table",
@@ -261,7 +337,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         };
       return {
         type,
-        rich_text: x[type].text, // pass all rich text fragments
+        rich_text: x[type].text,
         checked: x[type].checked ? true : false,
       };
     })
