@@ -185,6 +185,25 @@ const VideoBlock = ({ block }: { block: { [key: string]: any } }) => {
   );
 };
 
+// ColumnListBlock recursively renders columns and their children
+const ColumnListBlock = ({ columns }: { columns: any[][] }) => {
+  return (
+    <div className="flex gap-4 my-4">
+      {columns.map((blocks, colIdx) => (
+        <div key={colIdx} className="flex-1 flex flex-col gap-2">
+          {blocks.map((block, idx) => {
+            if (block.type === "image") return <ImageBlock block={block} key={idx} />;
+            if (block.type === "video") return <VideoBlock block={block} key={idx} />;
+            if (block.type === "table") return <TableBlock rows={block.rows} key={idx} />;
+            if (block.type === "column_list") return <ColumnListBlock columns={block.columns} key={idx} />;
+            return <Block block={block} key={idx} />;
+          })}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const Post = ({
   postData,
   postProperties,
@@ -238,15 +257,10 @@ const Post = ({
         </p>
         <br />
         {postData.map((x: any, index: number) => {
-          if (x.type === "image") {
-            return <ImageBlock block={x} key={index} />;
-          }
-          if (x.type === "video") {
-            return <VideoBlock block={x} key={index} />;
-          }
-          if (x.type === "table") {
-            return <TableBlock rows={x.rows} key={index} />;
-          }
+          if (x.type === "image") return <ImageBlock block={x} key={index} />;
+          if (x.type === "video") return <VideoBlock block={x} key={index} />;
+          if (x.type === "table") return <TableBlock rows={x.rows} key={index} />;
+          if (x.type === "column_list") return <ColumnListBlock columns={x.columns} key={index} />;
           return <Block key={index} block={x} />;
         })}
       </div>
@@ -301,47 +315,70 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       });
   }
 
-  // Map blocks, handling tables, images, videos, and rich text
-  const results = await Promise.all(
-    response.results.map(async (x: any) => {
-      const type = x.type;
-      if (type === "image") {
-        return x;
-      }
-      if (type === "video") {
-        // Support both file and external videos
-        const url =
-          x.video.type === "file"
-            ? x.video.file.url
-            : x.video.type === "external"
-            ? x.video.external.url
-            : null;
-        return {
-          type: "video",
-          url,
-          caption: x.video.caption,
-        };
-      }
-      if (type === "table") {
-        const rows = await fetchTableRows(x.id);
-        return {
-          type: "table",
-          rows,
-        };
-      }
-      // Handle blocks with rich_text
-      if (!x[type]?.text || x[type].text.length === 0)
-        return {
-          type: "break",
-          annotations: {},
-        };
+  // Recursive block mapping for columns and main content
+  async function mapBlock(x: any): Promise<any> {
+    const type = x.type;
+    if (type === "image") {
+      return x;
+    }
+    if (type === "video") {
+      const url =
+        x.video.type === "file"
+          ? x.video.file.url
+          : x.video.type === "external"
+          ? x.video.external.url
+          : null;
       return {
-        type,
-        rich_text: x[type].text,
-        checked: x[type].checked ? true : false,
+        type: "video",
+        url,
+        caption: x.video.caption,
       };
-    })
-  );
+    }
+    if (type === "table") {
+      const rows = await fetchTableRows(x.id);
+      return {
+        type: "table",
+        rows,
+      };
+    }
+    if (type === "column_list") {
+      // Fetch columns
+      const columnsResponse = await notion.blocks.children.list({
+        block_id: x.id,
+        page_size: 100,
+      });
+      const columns = await Promise.all(
+        columnsResponse.results
+          .filter((col: any) => col.type === "column")
+          .map(async (col: any) => {
+            // Fetch blocks inside each column
+            const colBlocksResponse = await notion.blocks.children.list({
+              block_id: col.id,
+              page_size: 100,
+            });
+            // Recursively process blocks in the column
+            return Promise.all(colBlocksResponse.results.map(mapBlock));
+          })
+      );
+      return {
+        type: "column_list",
+        columns,
+      };
+    }
+    if (!x[type]?.text || x[type].text.length === 0)
+      return {
+        type: "break",
+        annotations: {},
+      };
+    return {
+      type,
+      rich_text: x[type].text,
+      checked: x[type].checked ? true : false,
+    };
+  }
+
+  // Map blocks, handling tables, images, videos, columns, and rich text
+  const results = await Promise.all(response.results.map(mapBlock));
 
   return {
     props: {
