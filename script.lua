@@ -34,17 +34,19 @@ flyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
 flyVelocity.Velocity = Vector3.new(0, 0, 0)
 flyVelocity.Parent = nil
 
--- Utility functions to update GUI button colors
+-- Update GUI button colors helper
 local function updateButtonColor(button, enabled)
-    button.BackgroundColor3 = enabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(100, 100, 100)
+    local targetColor = enabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(100, 100, 100)
+    -- Tween background color smoothly
+    TweenService:Create(button, TweenInfo.new(0.3), {BackgroundColor3 = targetColor}):Play()
 end
 
--- Forward declarations for buttons (assigned later)
-local btnSpeed, btnFly, btnNoclip, btnInvul, btnTeleport
+-- Forward declarations
+local btnSpeed, btnFly, btnNoclip, btnInvul, btnTeleport, speedAdjustContainer
 
--- Update button texts and colors, including the Speed value display
+-- Update button texts and colors including speed value display
 local function updateButtonStates()
-    btnSpeed.Text = "Toggle Speed: " .. (speedEnabled and "ON (Speed: " .. walkSpeedFast .. ")" or "OFF")
+    btnSpeed.Text = "Toggle Speed: " .. (speedEnabled and ("ON (Speed: " .. walkSpeedFast .. ")") or "OFF")
     btnFly.Text = "Toggle Fly: " .. (flying and "ON" or "OFF")
     btnNoclip.Text = "Toggle Noclip: " .. (noclip and "ON" or "OFF")
     btnInvul.Text = "Toggle Invulnerability: " .. (invulnerable and "ON" or "OFF")
@@ -63,29 +65,24 @@ local function setSpeed(enabled)
     humanoid.WalkSpeed = enabled and walkSpeedFast or walkSpeedNormal
     updateButtonStates()
 end
-
 local function setNoclip(state)
     noclip = state
     updateButtonStates()
 end
-
 local function setInvulnerability(state)
     invulnerable = state
     updateButtonStates()
 end
-
 local function setTeleport(state)
     teleportEnabled = state
     updateButtonStates()
 end
-
 local function startFly()
     flying = true
     humanoid.PlatformStand = true
     flyVelocity.Parent = rootPart
     updateButtonStates()
 end
-
 local function stopFly()
     flying = false
     humanoid.PlatformStand = false
@@ -93,16 +90,9 @@ local function stopFly()
     flyVelocity.Velocity = Vector3.new(0, 0, 0)
     updateButtonStates()
 end
-
 local function toggleFly()
-    if flying then
-        stopFly()
-    else
-        startFly()
-    end
+    if flying then stopFly() else startFly() end
 end
-
--- Teleport functionality
 local function teleportToMousePosition()
     if not teleportEnabled then return end
     local character = player.Character
@@ -118,31 +108,16 @@ local function teleportToMousePosition()
     end
 end
 
--- Event connections for movement and toggles
-
+-- Movement and feature event handlers
 RunService.RenderStepped:Connect(function()
     if flying then
         local moveDirection = Vector3.zero
-
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-            moveDirection += workspace.CurrentCamera.CFrame.LookVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-            moveDirection -= workspace.CurrentCamera.CFrame.LookVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-            moveDirection -= workspace.CurrentCamera.CFrame.RightVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-            moveDirection += workspace.CurrentCamera.CFrame.RightVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-            moveDirection += Vector3.new(0, 1, 0)
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-            moveDirection -= Vector3.new(0, 1, 0)
-        end
-
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDirection += workspace.CurrentCamera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDirection -= workspace.CurrentCamera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDirection -= workspace.CurrentCamera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDirection += workspace.CurrentCamera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDirection += Vector3.new(0, 1, 0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDirection -= Vector3.new(0, 1, 0) end
         if moveDirection.Magnitude > 0 then
             moveDirection = moveDirection.Unit
             flyVelocity.Velocity = moveDirection * flySpeed
@@ -151,7 +126,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
 end)
-
 RunService.Stepped:Connect(function()
     if noclip and character then
         for _, part in pairs(character:GetDescendants()) do
@@ -161,44 +135,33 @@ RunService.Stepped:Connect(function()
         end
     end
 end)
-
 RunService.Stepped:Connect(function()
     if invulnerable and humanoid and humanoid.Health < humanoid.MaxHealth then
         humanoid.Health = humanoid.MaxHealth
     end
 end)
-
 player.CharacterAdded:Connect(function(char)
     character = char
     humanoid = character:WaitForChild("Humanoid")
     rootPart = character:WaitForChild("HumanoidRootPart")
-
+    -- Reset states on respawn
     setSpeed(false)
     stopFly()
     setNoclip(false)
     setInvulnerability(false)
     setTeleport(true)
 end)
-
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-
-    if input.KeyCode == flyToggleKey then
-        toggleFly()
-    elseif input.KeyCode == noclipToggleKey then
-        setNoclip(not noclip)
-    elseif input.KeyCode == invulToggleKey then
-        setInvulnerability(not invulnerable)
-    elseif input.KeyCode == teleportToggleKey then
-        setTeleport(not teleportEnabled)
+    if input.KeyCode == flyToggleKey then toggleFly()
+    elseif input.KeyCode == noclipToggleKey then setNoclip(not noclip)
+    elseif input.KeyCode == invulToggleKey then setInvulnerability(not invulnerable)
+    elseif input.KeyCode == teleportToggleKey then setTeleport(not teleportEnabled)
     end
 end)
+mouse.Button1Down:Connect(teleportToMousePosition)
 
-mouse.Button1Down:Connect(function()
-    teleportToMousePosition()
-end)
-
--- ==== GUI Creation (Reverted Basic with Speed Adjustment) ====
+-- ==== GUI Creation (Basic with Speed Adjustment) ====
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "MovementHelperGui"
@@ -207,7 +170,7 @@ screenGui.Parent = playerGui
 
 local frame = Instance.new("Frame")
 local collapsedHeight = 40       -- Collapsed frame height (title + toggle)
-local expandedHeight = 300      -- Increased height to fit new controls
+local expandedHeight = 300       -- Increased to fit speed controls
 
 frame.Size = UDim2.new(0, 260, 0, expandedHeight)
 frame.Position = UDim2.new(0.02, 0, 0.65, 0)
@@ -238,14 +201,14 @@ btnCollapse.TextSize = 24
 btnCollapse.TextColor3 = Color3.fromRGB(220, 220, 220)
 btnCollapse.Parent = frame
 
--- Button creation helper function
+-- Button creation helper
 local function createButton(text, posY)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 230, 0, 35)
     btn.Position = UDim2.new(0, 15, 0, posY)
     btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     btn.BorderSizePixel = 0
-    btn.AutoButtonColor = true
+    btn.AutoButtonColor = false -- Disable default to handle custom hover
     btn.Font = Enum.Font.GothamSemibold
     btn.TextSize = 16
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -261,8 +224,8 @@ btnNoclip = createButton("Toggle Noclip: OFF", 120)
 btnInvul = createButton("Toggle Invulnerability: OFF", 160)
 btnTeleport = createButton("Toggle Teleport: ON", 200)
 
--- === Speed adjustment controls ===
-local speedAdjustContainer = Instance.new("Frame")
+-- Speed adjustment controls container
+speedAdjustContainer = Instance.new("Frame")
 speedAdjustContainer.Size = UDim2.new(0, 230, 0, 80)
 speedAdjustContainer.Position = UDim2.new(0, 15, 0, 240)
 speedAdjustContainer.BackgroundTransparency = 1
@@ -372,26 +335,22 @@ speedInputBox.FocusLost:Connect(function()
     if value then
         local clampedValue = math.clamp(value, walkSpeedNormal, 100)
         walkSpeedFast = clampedValue
-        if speedEnabled then
-            humanoid.WalkSpeed = clampedValue
-            updateButtonStates()
-        end
+        if speedEnabled then humanoid.WalkSpeed = clampedValue end
         local sliderWidth = sliderBackground.AbsoluteSize.X - sliderHandle.Size.X.Offset
         local proportion = (clampedValue - walkSpeedNormal) / (100 - walkSpeedNormal)
         sliderHandle.Position = UDim2.new(0, proportion * sliderWidth, 0, 0)
+        updateButtonStates()
     else
         speedInputBox.Text = tostring(walkSpeedFast)
     end
 end)
 
 -- Collapse toggle feature
-
 local tweenDuration = 0.3
 local isCollapsed = false
 
 local function toggleCollapse()
     isCollapsed = not isCollapsed
-
     local targetSize = isCollapsed and UDim2.new(0, 260, 0, collapsedHeight) or UDim2.new(0, 260, 0, expandedHeight)
     TweenService:Create(frame, TweenInfo.new(tweenDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize}):Play()
 
@@ -422,28 +381,46 @@ end
 
 btnCollapse.MouseButton1Click:Connect(toggleCollapse)
 
--- Button click events
+-- Add hover effect that only tweens background color (no text transparency tween)
+local function addHoverEffect(button, defaultColor, hoverColor)
+    button.BackgroundColor3 = defaultColor
+    button.AutoButtonColor = false
+
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = hoverColor}):Play()
+    end)
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = defaultColor}):Play()
+    end)
+end
+
+local hoverDefault = Color3.fromRGB(50, 50, 50)
+local hoverActive = Color3.fromRGB(70, 90, 70)
+
+addHoverEffect(btnSpeed, hoverDefault, hoverActive)
+addHoverEffect(btnFly, hoverDefault, hoverActive)
+addHoverEffect(btnNoclip, hoverDefault, hoverActive)
+addHoverEffect(btnInvul, hoverDefault, hoverActive)
+addHoverEffect(btnTeleport, hoverDefault, hoverActive)
+
+-- Connect button click events
 btnSpeed.MouseButton1Click:Connect(function()
     setSpeed(not speedEnabled)
 end)
-
 btnFly.MouseButton1Click:Connect(function()
     toggleFly()
 end)
-
 btnNoclip.MouseButton1Click:Connect(function()
     setNoclip(not noclip)
 end)
-
 btnInvul.MouseButton1Click:Connect(function()
     setInvulnerability(not invulnerable)
 end)
-
 btnTeleport.MouseButton1Click:Connect(function()
     setTeleport(not teleportEnabled)
 end)
 
--- Initialize GUI buttons and speed controls
+-- Initialize GUI buttons states/labels
 setSpeed(speedEnabled)
 setNoclip(noclip)
 setInvulnerability(invulnerable)
