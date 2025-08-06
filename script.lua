@@ -36,11 +36,6 @@ end
 
 local function setNoclip(state)
     noclip = state
-    for _, part in pairs(character:GetDescendants()) do
-        if part:IsA("BasePart") and part.CanCollide ~= not state then
-            part.CanCollide = not state
-        end
-    end
     updateButtonStates()
 end
 
@@ -67,7 +62,7 @@ local function toggleFly()
     end
 end
 
--- Update fly movement
+-- Update fly movement every frame when flying
 RunService.RenderStepped:Connect(function()
     if flying then
         local moveDirection = Vector3.zero
@@ -96,6 +91,17 @@ RunService.RenderStepped:Connect(function()
             flyVelocity.Velocity = moveDirection * flySpeed
         else
             flyVelocity.Velocity = Vector3.zero
+        end
+    end
+end)
+
+-- Continuously enforce noclip by disabling CanCollide on all parts
+RunService.Stepped:Connect(function()
+    if noclip and character then
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide == true then
+                part.CanCollide = false
+            end
         end
     end
 end)
