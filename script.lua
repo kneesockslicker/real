@@ -6,6 +6,7 @@ local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+local mouse = player:GetMouse()
 
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
@@ -59,6 +60,21 @@ local function toggleFly()
         stopFly()
     else
         startFly()
+    end
+end
+
+-- Teleport Functionality
+local function teleportToMousePosition()
+    local character = player.Character
+    local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+    if humanoidRootPart and mouse then
+        local unitRay = workspace.CurrentCamera:ScreenPointToRay(mouse.X, mouse.Y)
+        local ray = Ray.new(unitRay.Origin, unitRay.Direction * 1000)
+        local ignoreList = {character}
+        local hitPart, hitPos = workspace:FindPartOnRayWithIgnoreList(ray, ignoreList)
+        if hitPos then
+            humanoidRootPart.CFrame = CFrame.new(hitPos + Vector3.new(0, 4, 0))
+        end
     end
 end
 
@@ -205,4 +221,9 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     elseif input.KeyCode == noclipToggleKey then
         setNoclip(not noclip)
     end
+end)
+
+-- Mouse click teleport
+mouse.Button1Down:Connect(function()
+    teleportToMousePosition()
 end)
