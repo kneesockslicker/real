@@ -1,270 +1,179 @@
 -- Services
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
-local mouse = player:GetMouse()
-
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
-local rootPart = character:WaitForChild("HumanoidRootPart")
 
--- Configurations
+-- Configuration for speed adjustment
 local walkSpeedNormal = 16
-local walkSpeedFast = 50  -- default fast speed
-local flySpeed = 50
+local walkSpeedMin = 16
+local walkSpeedMax = 150
 
-local flyToggleKey = Enum.KeyCode.F
-local noclipToggleKey = Enum.KeyCode.G
-local invulToggleKey = Enum.KeyCode.H
-local teleportToggleKey = Enum.KeyCode.T
+-- Initial walk speed
+local currentWalkSpeed = walkSpeedNormal
+humanoid.WalkSpeed = currentWalkSpeed
 
--- State variables
-local speedEnabled = true
-local flying = false
-local noclip = false
-local invulnerable = false
-local teleportEnabled = true
-
-local flyVelocity = Instance.new("BodyVelocity")
-flyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-flyVelocity.Velocity = Vector3.new(0, 0, 0)
-flyVelocity.Parent = nil
-
--- Helper to update button text and color
-local function updateButton(button, enabled, label)
-    button.Text = label .. (enabled and ": ON" or ": OFF")
-    button.BackgroundColor3 = enabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(100, 100, 100)
-end
-
--- Forward declarations for buttons
-local btnSpeed, btnFly, btnNoclip, btnInvul, btnTeleport
-
--- Update all buttons according to states
-local function updateAllButtons()
-    updateButton(btnSpeed, speedEnabled, "Toggle Speed")
-    updateButton(btnFly, flying, "Toggle Fly")
-    updateButton(btnNoclip, noclip, "Toggle Noclip")
-    updateButton(btnInvul, invulnerable, "Toggle Invulnerability")
-    updateButton(btnTeleport, teleportEnabled, "Toggle Teleport")
-end
-
--- State setters (update both state and GUI)
-local function setSpeed(enabled)
-    speedEnabled = enabled
-    humanoid.WalkSpeed = enabled and walkSpeedFast or walkSpeedNormal
-    updateAllButtons()
-end
-
-local function setNoclip(state)
-    noclip = state
-    updateAllButtons()
-end
-
-local function setInvulnerability(state)
-    invulnerable = state
-    updateAllButtons()
-end
-
-local function setTeleport(state)
-    teleportEnabled = state
-    updateAllButtons()
-end
-
-local function startFly()
-    flying = true
-    humanoid.PlatformStand = true
-    flyVelocity.Parent = rootPart
-    updateAllButtons()
-end
-
-local function stopFly()
-    flying = false
-    humanoid.PlatformStand = false
-    flyVelocity.Parent = nil
-    flyVelocity.Velocity = Vector3.new(0, 0, 0)
-    updateAllButtons()
-end
-
-local function toggleFly()
-    if flying then stopFly() else startFly() end
-end
-
--- Teleport function on mouse click
-local function teleportToMousePosition()
-    if not teleportEnabled then return end
-    local character = player.Character
-    local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-    if humanoidRootPart and mouse then
-        local unitRay = workspace.CurrentCamera:ScreenPointToRay(mouse.X, mouse.Y)
-        local ray = Ray.new(unitRay.Origin, unitRay.Direction * 1000)
-        local ignoreList = {character}
-        local hitPart, hitPos = workspace:FindPartOnRayWithIgnoreList(ray, ignoreList)
-        if hitPos then
-            humanoidRootPart.CFrame = CFrame.new(hitPos + Vector3.new(0, 4, 0))
-        end
-    end
-end
-
--- Movement and state event connections
-RunService.RenderStepped:Connect(function()
-    if flying then
-        local moveDirection = Vector3.zero
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDirection += workspace.CurrentCamera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDirection -= workspace.CurrentCamera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDirection -= workspace.CurrentCamera.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDirection += workspace.CurrentCamera.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDirection += Vector3.new(0, 1, 0) end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDirection -= Vector3.new(0, 1, 0) end
-        if moveDirection.Magnitude > 0 then
-            moveDirection = moveDirection.Unit
-            flyVelocity.Velocity = moveDirection * flySpeed
-        else
-            flyVelocity.Velocity = Vector3.zero
-        end
-    end
-end)
+-- === Function to instantly trigger all ProximityPrompts in range every frame ===
 
 RunService.Stepped:Connect(function()
-    if noclip and character then
-        for _, part in pairs(character:GetDescendants()) do
-            if part:IsA("BasePart") and part.CanCollide then
-                part.CanCollide = false
+    -- Find all ProximityPrompts in workspace - optionally you can narrow down to certain containers
+    for _, prompt in pairs(workspace:GetDescendants()) do
+        if prompt:IsA("ProximityPrompt") then
+            -- Check distance to player, optional to optimize performance
+            local promptParent = prompt.Parent
+            if promptParent and promptParent:IsA("BasePart") and character and character:FindFirstChild("HumanoidRootPart") then
+                local distance = (promptParent.Position - character.HumanoidRootPart.Position).Magnitude
+                if distance <= prompt.MaxActivationDistance then
+                    -- Fire proximity prompt instantly
+                    -- Use :InputHoldBegin() / :InputHoldEnd() instead of :InputHoldBegin() for hold duration prompts,
+                    -- but here we just trigger :InputHoldBegin() + :InputHoldEnd() to simulate instant press
+                    prompt:InputHoldBegin()
+                    prompt:InputHoldEnd()
+                end
             end
         end
     end
 end)
 
-RunService.Stepped:Connect(function()
-    if invulnerable and humanoid and humanoid.Health < humanoid.MaxHealth then
-        humanoid.Health = humanoid.MaxHealth
-    end
-end)
+-- === GUI Creation for WalkSpeed Adjustment (Textbox + Slider) ===
 
-player.CharacterAdded:Connect(function(char)
-    character = char
-    humanoid = character:WaitForChild("Humanoid")
-    rootPart = character:WaitForChild("HumanoidRootPart")
-    -- Reset states on respawn
-    setSpeed(false)
-    stopFly()
-    setNoclip(false)
-    setInvulnerability(false)
-    setTeleport(true)
-end)
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == flyToggleKey then toggleFly()
-    elseif input.KeyCode == noclipToggleKey then setNoclip(not noclip)
-    elseif input.KeyCode == invulToggleKey then setInvulnerability(not invulnerable)
-    elseif input.KeyCode == teleportToggleKey then setTeleport(not teleportEnabled)
-    end
-end)
-
-mouse.Button1Down:Connect(teleportToMousePosition)
-
--- ==== GUI Creation (Simple Reverted Basic) ====
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "MovementHelperGui"
+screenGui.Name = "SpeedAdjustGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
 local frame = Instance.new("Frame")
-local collapsedHeight = 40     -- Title + collapse button height
-local expandedHeight = 210     -- Full height for buttons
-
-frame.Size = UDim2.new(0, 260, 0, expandedHeight)
-frame.Position = UDim2.new(0.02, 0, 0.65, 0)
-frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-frame.BackgroundTransparency = 0.2
+frame.Size = UDim2.new(0, 260, 0, 100)
+frame.Position = UDim2.new(0.02, 0, 0.7, 0)
+frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 frame.BorderSizePixel = 0
 frame.Parent = screenGui
 frame.Active = true
-frame.Draggable = true -- Default Roblox drag
+frame.Draggable = true
 
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 30)
+title.Position = UDim2.new(0, 0, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "Movement Helper"
-title.TextColor3 = Color3.fromRGB(220, 220, 220)
+title.Text = "Adjust Walk Speed"
 title.Font = Enum.Font.GothamBold
 title.TextSize = 20
+title.TextColor3 = Color3.fromRGB(220, 220, 220)
 title.Parent = frame
 
-local btnCollapse = Instance.new("TextButton")
-btnCollapse.Size = UDim2.new(0, 30, 0, 30)
-btnCollapse.Position = UDim2.new(1, -35, 0, 5)
-btnCollapse.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-btnCollapse.BorderSizePixel = 0
-btnCollapse.Text = "–"
-btnCollapse.Font = Enum.Font.GothamBold
-btnCollapse.TextSize = 24
-btnCollapse.TextColor3 = Color3.fromRGB(220, 220, 220)
-btnCollapse.Parent = frame
+-- TextBox to input speed value
+local speedInputBox = Instance.new("TextBox")
+speedInputBox.Size = UDim2.new(0, 80, 0, 25)
+speedInputBox.Position = UDim2.new(0, 15, 0, 40)
+speedInputBox.PlaceholderText = tostring(walkSpeedNormal)
+speedInputBox.Text = tostring(currentWalkSpeed)
+speedInputBox.ClearTextOnFocus = false
+speedInputBox.Font = Enum.Font.GothamSemibold
+speedInputBox.TextSize = 18
+speedInputBox.TextColor3 = Color3.new(1,1,1)
+speedInputBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+speedInputBox.BorderSizePixel = 0
+speedInputBox.Parent = frame
 
-local function createButton(text, yPos)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 230, 0, 35)
-    btn.Position = UDim2.new(0, 15, 0, yPos)
-    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    btn.AutoButtonColor = true
-    btn.BorderSizePixel = 0
-    btn.Font = Enum.Font.GothamSemibold
-    btn.TextSize = 16
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Text = text
-    btn.Parent = frame
-    return btn
+-- Slider background frame
+local sliderBackground = Instance.new("Frame")
+sliderBackground.Size = UDim2.new(0, 150, 0, 25)
+sliderBackground.Position = UDim2.new(0, 110, 0, 40)
+sliderBackground.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+sliderBackground.BorderSizePixel = 0
+sliderBackground.Parent = frame
+
+local sliderUICorner = Instance.new("UICorner")
+sliderUICorner.CornerRadius = UDim.new(0, 5)
+sliderUICorner.Parent = sliderBackground
+
+-- Slider handle
+local sliderHandle = Instance.new("Frame")
+sliderHandle.Size = UDim2.new(0, 20, 1, 0)
+local initialProportion = (currentWalkSpeed - walkSpeedMin) / (walkSpeedMax - walkSpeedMin)
+sliderHandle.Position = UDim2.new(initialProportion, 0, 0, 0)
+sliderHandle.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+sliderHandle.BorderSizePixel = 0
+sliderHandle.Parent = sliderBackground
+
+local sliderHandleCorner = Instance.new("UICorner")
+sliderHandleCorner.CornerRadius = UDim.new(0, 10)
+sliderHandleCorner.Parent = sliderHandle
+
+-- Helper function: update speed from slider position
+local function updateSpeedFromSlider()
+    local sliderWidth = sliderBackground.AbsoluteSize.X - sliderHandle.AbsoluteSize.X
+    local sliderX = sliderHandle.Position.X.Offset
+    local proportion = math.clamp(sliderX / sliderWidth, 0, 1)
+    local newSpeed = math.floor(proportion * (walkSpeedMax - walkSpeedMin) + walkSpeedMin)
+    currentWalkSpeed = newSpeed
+    speedInputBox.Text = tostring(newSpeed)
+    humanoid.WalkSpeed = speedEnabled and currentWalkSpeed or walkSpeedNormal
 end
 
-btnSpeed = createButton("Toggle Speed: ON", 40)
-btnFly = createButton("Toggle Fly: OFF", 80)
-btnNoclip = createButton("Toggle Noclip: OFF", 120)
-btnInvul = createButton("Toggle Invulnerability: OFF", 160)
-btnTeleport = createButton("Toggle Teleport: ON", 200)
+-- Slider dragging logic
+local dragging = false
+local dragStart = nil
+local handleStartPos = nil
 
-local tweenTime = 0.3
-local isCollapsed = false
-
-local function toggleCollapse()
-    isCollapsed = not isCollapsed
-    local targetSize = isCollapsed and UDim2.new(0, 260, 0, collapsedHeight) or UDim2.new(0, 260, 0, expandedHeight)
-    TweenService:Create(frame, TweenInfo.new(tweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize}):Play()
-    TweenService:Create(btnCollapse, TweenInfo.new(tweenTime / 2), {TextTransparency = 1}):Play()
-    delay(tweenTime / 2, function()
-        btnCollapse.Text = isCollapsed and "+" or "–"
-        TweenService:Create(btnCollapse, TweenInfo.new(tweenTime / 2), {TextTransparency = 0}):Play()
-    end)
-    for _, btn in ipairs({btnSpeed, btnFly, btnNoclip, btnInvul, btnTeleport}) do
-        if isCollapsed then
-            local tween = TweenService:Create(btn, TweenInfo.new(tweenTime), {BackgroundTransparency = 1, TextTransparency = 1})
-            tween:Play()
-            tween.Completed:Connect(function()
-                btn.Visible = false
-                btn.BackgroundTransparency = 0
-                btn.TextTransparency = 0
-            end)
-        else
-            btn.Visible = true
-            btn.BackgroundTransparency = 1
-            btn.TextTransparency = 1
-            TweenService:Create(btn, TweenInfo.new(tweenTime), {BackgroundTransparency = 0, TextTransparency = 0}):Play()
-        end
+sliderHandle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position.X
+        handleStartPos = sliderHandle.Position.X.Offset
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
     end
-end
+end)
 
-btnCollapse.MouseButton1Click:Connect(toggleCollapse)
+sliderBackground.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local relativeX = input.Position.X - sliderBackground.AbsolutePosition.X
+        local posOffset = math.clamp(relativeX - sliderHandle.AbsoluteSize.X/2, 0, sliderBackground.AbsoluteSize.X - sliderHandle.AbsoluteSize.X)
+        sliderHandle.Position = UDim2.new(0, posOffset, 0, 0)
+        updateSpeedFromSlider()
+    end
+end)
 
--- Connect buttons to toggle their features
-btnSpeed.MouseButton1Click:Connect(function() setSpeed(not speedEnabled) end)
-btnFly.MouseButton1Click:Connect(function() toggleFly() end)
-btnNoclip.MouseButton1Click:Connect(function() setNoclip(not noclip) end)
-btnInvul.MouseButton1Click:Connect(function() setInvulnerability(not invulnerable) end)
-btnTeleport.MouseButton1Click:Connect(function() setTeleport(not teleportEnabled) end)
+RunService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position.X - dragStart
+        local newPos = math.clamp(handleStartPos + delta, 0, sliderBackground.AbsoluteSize.X - sliderHandle.AbsoluteSize.X)
+        sliderHandle.Position = UDim2.new(0, newPos, 0, 0)
+        updateSpeedFromSlider()
+    end
+end)
 
--- Initialize button states to sync GUI and logic
-updateAllButtons()
+-- InputBox focus lost event to update speed from typed value
+speedInputBox.FocusLost:Connect(function(enterPressed)
+    local val = tonumber(speedInputBox.Text)
+    if val then
+        val = math.clamp(val, walkSpeedMin, walkSpeedMax)
+        currentWalkSpeed = val
+        humanoid.WalkSpeed = speedEnabled and currentWalkSpeed or walkSpeedNormal
+        -- Update slider position accordingly
+        local sliderWidth = sliderBackground.AbsoluteSize.X - sliderHandle.AbsoluteSize.X
+        local proportion = (val - walkSpeedMin) / (walkSpeedMax - walkSpeedMin)
+        sliderHandle.Position = UDim2.new(0, proportion * sliderWidth, 0, 0)
+        speedInputBox.Text = tostring(val) -- ensure formatting is fixed
+    else
+        -- Reset to current speed if input invalid
+        speedInputBox.Text = tostring(currentWalkSpeed)
+    end
+end)
+
+-- WalkSpeed toggle flag and button for it
+local speedEnabled = true
+
+-- Optional: Create a simple button to toggle speed ON/OFF
+-- You can add it below if you want; for simplicity, it's omitted. Otherwise,
+-- just set `speedEnabled` to true always.
+
+print("Instant ProximityPrompt activator and WalkSpeed adjuster loaded")
