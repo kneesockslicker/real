@@ -33,7 +33,7 @@ end
 
 -- Main Frame
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0.35, 0, 0.22, 0)
+frame.Size = UDim2.new(0.35, 0, 0.25, 0)
 frame.Position = UDim2.new(0.02, 0, 0.72, 0)
 frame.AnchorPoint = Vector2.new(0, 0)
 frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -52,12 +52,13 @@ title.TextSize = 22
 title.TextColor3 = Color3.fromRGB(220, 220, 220)
 title.Text = "Adjust Walk Speed"
 title.TextXAlignment = Enum.TextXAlignment.Left
+title.TextYAlignment = Enum.TextYAlignment.Center
 title.Parent = frame
 
 -- TextBox for speed input
 local speedInputBox = Instance.new("TextBox")
-speedInputBox.Size = UDim2.new(0.28, 0, 0, 40)
-speedInputBox.Position = UDim2.new(0, 15, 0, 60)
+speedInputBox.Size = UDim2.new(0.3, 0, 0, 40)
+speedInputBox.Position = UDim2.new(0.05, 0, 0, 50)
 speedInputBox.Font = Enum.Font.GothamSemibold
 speedInputBox.TextSize = 20
 speedInputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -69,8 +70,8 @@ speedInputBox.Parent = frame
 
 -- Slider background
 local sliderBack = Instance.new("Frame")
-sliderBack.Size = UDim2.new(0.6, 0, 0, 40)
-sliderBack.Position = UDim2.new(0.38, 0, 0, 60)
+sliderBack.Size = UDim2.new(0.55, 0, 0, 40)
+sliderBack.Position = UDim2.new(0.4, 0, 0, 50)
 sliderBack.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
 sliderBack.BorderSizePixel = 0
 sliderBack.Parent = frame
@@ -91,8 +92,51 @@ local sliderHandleCorner = Instance.new("UICorner")
 sliderHandleCorner.CornerRadius = UDim.new(0, 15)
 sliderHandleCorner.Parent = sliderHandle
 
+-- State variable for the speed29 toggle
+local speed29Enabled = false
+local savedSpeedBefore29 = currentSpeed  -- Store previous speed before toggle
+
+-- Create the toggle button for speed 29
+local btnSpeed29 = Instance.new("TextButton")
+btnSpeed29.Size = UDim2.new(0, 230, 0, 40)
+btnSpeed29.Position = UDim2.new(0, 15, 0, 100)  -- Below slider and textbox
+btnSpeed29.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+btnSpeed29.BorderSizePixel = 0
+btnSpeed29.AutoButtonColor = false
+btnSpeed29.Font = Enum.Font.GothamSemibold
+btnSpeed29.TextSize = 18
+btnSpeed29.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnSpeed29.Text = "Set Speed 29: OFF"
+btnSpeed29.Parent = frame
+
+-- Function to update the toggle button appearance
+local function updateSpeed29Button()
+    if speed29Enabled then
+        btnSpeed29.Text = "Set Speed 29: ON"
+        btnSpeed29.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+    else
+        btnSpeed29.Text = "Set Speed 29: OFF"
+        btnSpeed29.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    end
+end
+
+-- Function to enable/disable the slider and textbox
+local function setSpeedControlsEnabled(enabled)
+    speedInputBox.Active = enabled
+    speedInputBox.TextEditable = enabled
+    sliderBack.Active = enabled
+    sliderHandle.Active = enabled
+    sliderHandle.Selectable = enabled
+    -- Optional: adjust transparency to indicate disabled state
+    local transparency = enabled and 0 or 0.5
+    speedInputBox.BackgroundTransparency = transparency
+    sliderBack.BackgroundTransparency = transparency
+    sliderHandle.BackgroundTransparency = transparency
+end
+
 -- Function to update speed from slider position
 local function updateSpeedFromSlider()
+    if speed29Enabled then return end -- ignore if speed29 toggle is ON
     local maxPosX = sliderBack.AbsoluteSize.X - sliderHandle.AbsoluteSize.X
     local posX = sliderHandle.Position.X.Offset
     local proportion = math.clamp(posX / maxPosX, 0, 1)
@@ -143,25 +187,11 @@ end)
 
 -- Update speed from TextBox input
 speedInputBox.FocusLost:Connect(function()
+    if speed29Enabled then 
+        -- Ignore text updates when speed29 toggle is on
+        speedInputBox.Text = tostring(currentSpeed)
+        return 
+    end
     local val = tonumber(speedInputBox.Text)
     if val then
         local clampedVal = math.clamp(val, WALK_SPEED_MIN, WALK_SPEED_MAX)
-        currentSpeed = clampedVal
-        humanoid.WalkSpeed = currentSpeed
-        
-        -- Update slider position accordingly
-        local maxPos = sliderBack.AbsoluteSize.X - sliderHandle.AbsoluteSize.X
-        local proportion = (clampedVal - WALK_SPEED_MIN) / (WALK_SPEED_MAX - WALK_SPEED_MIN)
-        sliderHandle.Position = UDim2.new(0, proportion * maxPos, 0, 0)
-        
-        speedInputBox.Text = tostring(clampedVal)  -- update text to clamped valid number
-    else
-        -- Revert text if invalid input
-        speedInputBox.Text = tostring(currentSpeed)
-    end
-end)
-
--- Initialize humanoid walk speed
-humanoid.WalkSpeed = currentSpeed
-
-print("[WalkSpeed GUI] Loaded. Use slider or input box to adjust speed.")
