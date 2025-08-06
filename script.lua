@@ -12,7 +12,7 @@ local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 
 -- Walk speed limits
-local WALK_SPEED_MIN = 25
+local WALK_SPEED_MIN = 29
 local WALK_SPEED_MAX = 69  -- capped max speed
 
 -- Current speed variable
