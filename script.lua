@@ -195,3 +195,52 @@ speedInputBox.FocusLost:Connect(function()
     local val = tonumber(speedInputBox.Text)
     if val then
         local clampedVal = math.clamp(val, WALK_SPEED_MIN, WALK_SPEED_MAX)
+        currentSpeed = clampedVal
+        humanoid.WalkSpeed = currentSpeed
+        
+        -- Update slider position accordingly
+        local maxPos = sliderBack.AbsoluteSize.X - sliderHandle.AbsoluteSize.X
+        local proportion = (clampedVal - WALK_SPEED_MIN) / (WALK_SPEED_MAX - WALK_SPEED_MIN)
+        sliderHandle.Position = UDim2.new(0, proportion * maxPos, 0, 0)
+        
+        speedInputBox.Text = tostring(clampedVal)  -- sanitize user input
+    else
+        -- Revert text if invalid input
+        speedInputBox.Text = tostring(currentSpeed)
+    end
+end)
+
+-- Button click event for toggle
+btnSpeed29.MouseButton1Click:Connect(function()
+    speed29Enabled = not speed29Enabled
+    if speed29Enabled then
+        -- Save current speed and override
+        savedSpeedBefore29 = currentSpeed
+        currentSpeed = 29
+        humanoid.WalkSpeed = 29
+        setSpeedControlsEnabled(false)
+    else
+        -- Restore speed from before toggle
+        currentSpeed = savedSpeedBefore29
+        humanoid.WalkSpeed = currentSpeed
+        setSpeedControlsEnabled(true)
+        -- Update slider and textbox to restored speed
+        speedInputBox.Text = tostring(currentSpeed)
+        local maxPos = sliderBack.AbsoluteSize.X - sliderHandle.AbsoluteSize.X
+        local proportion = (currentSpeed - WALK_SPEED_MIN) / (WALK_SPEED_MAX - WALK_SPEED_MIN)
+        sliderHandle.Position = UDim2.new(0, proportion * maxPos, 0, 0)
+    end
+    -- Update toggle button appearance
+    if speed29Enabled then
+        btnSpeed29.Text = "Set Speed 29: ON"
+        btnSpeed29.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+    else
+        btnSpeed29.Text = "Set Speed 29: OFF"
+        btnSpeed29.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    end
+end)
+
+-- Initialize walk speed and GUI state
+humanoid.WalkSpeed = currentSpeed
+
+print("[WalkSpeed GUI with Speed 29 toggle] Loaded. Drag slider or enter value to adjust speed. Use toggle button to set speed to 29 instantly.")
