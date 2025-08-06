@@ -17,10 +17,17 @@ local walkSpeedNormal = 16
 local walkSpeedFast = 50
 local flySpeed = 50
 
+local flyToggleKey = Enum.KeyCode.F
+local noclipToggleKey = Enum.KeyCode.G
+local invulToggleKey = Enum.KeyCode.H         -- Added hotkey for invulnerability toggle (H)
+local teleportToggleKey = Enum.KeyCode.T      -- Added hotkey for teleport toggle (T)
+
 -- State variables
 local speedEnabled = true
 local flying = false
 local noclip = false
+local invulnerable = false
+local teleportEnabled = true
 
 local flyVelocity = Instance.new("BodyVelocity")
 flyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
@@ -37,6 +44,16 @@ end
 
 local function setNoclip(state)
     noclip = state
+    updateButtonStates()
+end
+
+local function setInvulnerability(state)
+    invulnerable = state
+    updateButtonStates()
+end
+
+local function setTeleport(state)
+    teleportEnabled = state
     updateButtonStates()
 end
 
@@ -65,6 +82,7 @@ end
 
 -- Teleport Functionality
 local function teleportToMousePosition()
+    if not teleportEnabled then return end
     local character = player.Character
     local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
     if humanoidRootPart and mouse then
@@ -122,6 +140,13 @@ RunService.Stepped:Connect(function()
     end
 end)
 
+-- Keep invulnerability by restoring health every frame
+RunService.Stepped:Connect(function()
+    if invulnerable and humanoid and humanoid.Health < humanoid.MaxHealth then
+        humanoid.Health = humanoid.MaxHealth
+    end
+end)
+
 -- Reset character references and states on respawn
 player.CharacterAdded:Connect(function(char)
     character = char
@@ -132,6 +157,8 @@ player.CharacterAdded:Connect(function(char)
     setSpeed(false)
     stopFly()
     setNoclip(false)
+    setInvulnerability(false)
+    setTeleport(true)
 end)
 
 -- === GUI Creation ===
@@ -143,8 +170,8 @@ screenGui.Parent = playerGui
 
 -- Main Frame
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 240, 0, 140)
-frame.Position = UDim2.new(0.02, 0, 0.7, 0)
+frame.Size = UDim2.new(0, 260, 0, 180)
+frame.Position = UDim2.new(0.02, 0, 0.65, 0)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.BackgroundTransparency = 0.2
 frame.BorderSizePixel = 0
@@ -154,18 +181,18 @@ frame.Draggable = true
 
 -- Title
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 25)
+title.Size = UDim2.new(1, 0, 0, 30)
 title.BackgroundTransparency = 1
 title.Text = "Movement Helper"
 title.TextColor3 = Color3.fromRGB(220, 220, 220)
 title.Font = Enum.Font.GothamBold
-title.TextSize = 18
+title.TextSize = 20
 title.Parent = frame
 
 -- Button creation helper
 local function createButton(text, posY)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 210, 0, 35)
+    btn.Size = UDim2.new(0, 230, 0, 35)
     btn.Position = UDim2.new(0, 15, 0, posY)
     btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     btn.BorderSizePixel = 0
@@ -182,16 +209,22 @@ end
 local btnSpeed = createButton("Toggle Speed: ON", 40)
 local btnFly = createButton("Toggle Fly: OFF", 80)
 local btnNoclip = createButton("Toggle Noclip: OFF", 120)
+local btnInvul = createButton("Toggle Invulnerability: OFF", 160)
+local btnTeleport = createButton("Toggle Teleport: ON", 200)
 
 -- Update button text and colors based on state
 function updateButtonStates()
     btnSpeed.Text = "Toggle Speed: " .. (speedEnabled and "ON" or "OFF")
     btnFly.Text = "Toggle Fly: " .. (flying and "ON" or "OFF")
     btnNoclip.Text = "Toggle Noclip: " .. (noclip and "ON" or "OFF")
+    btnInvul.Text = "Toggle Invulnerability: " .. (invulnerable and "ON" or "OFF")
+    btnTeleport.Text = "Toggle Teleport: " .. (teleportEnabled and "ON" or "OFF")
 
     btnSpeed.BackgroundColor3 = speedEnabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(100, 100, 100)
     btnFly.BackgroundColor3 = flying and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(100, 100, 100)
     btnNoclip.BackgroundColor3 = noclip and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(100, 100, 100)
+    btnInvul.BackgroundColor3 = invulnerable and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(100, 100, 100)
+    btnTeleport.BackgroundColor3 = teleportEnabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(100, 100, 100)
 end
 
 updateButtonStates()
@@ -209,10 +242,15 @@ btnNoclip.MouseButton1Click:Connect(function()
     setNoclip(not noclip)
 end)
 
--- Optional: Also keep existing keyboard toggles
-local flyToggleKey = Enum.KeyCode.F
-local noclipToggleKey = Enum.KeyCode.G
+btnInvul.MouseButton1Click:Connect(function()
+    setInvulnerability(not invulnerable)
+end)
 
+btnTeleport.MouseButton1Click:Connect(function()
+    setTeleport(not teleportEnabled)
+end)
+
+-- Keyboard toggles
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
 
@@ -220,6 +258,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         toggleFly()
     elseif input.KeyCode == noclipToggleKey then
         setNoclip(not noclip)
+    elseif input.KeyCode == invulToggleKey then
+        setInvulnerability(not invulnerable)
+    elseif input.KeyCode == teleportToggleKey then
+        setTeleport(not teleportEnabled)
     end
 end)
 
