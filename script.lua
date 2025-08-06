@@ -2,6 +2,7 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -33,8 +34,16 @@ flyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
 flyVelocity.Velocity = Vector3.new(0, 0, 0)
 flyVelocity.Parent = nil
 
--- === Functions ===
+-- Helper function for tweening button colors
+local function tweenButtonColor(button, enabled)
+    local targetColor = enabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(100, 100, 100)
+    TweenService:Create(button, TweenInfo.new(0.3), {BackgroundColor3 = targetColor}):Play()
+end
 
+-- Forward declarations for buttons to be assigned later
+local btnSpeed, btnFly, btnNoclip, btnInvul, btnTeleport
+
+-- Update button states with smooth color transitions
 local function updateButtonStates()
     btnSpeed.Text = "Toggle Speed: " .. (speedEnabled and "ON" or "OFF")
     btnFly.Text = "Toggle Fly: " .. (flying and "ON" or "OFF")
@@ -42,13 +51,14 @@ local function updateButtonStates()
     btnInvul.Text = "Toggle Invulnerability: " .. (invulnerable and "ON" or "OFF")
     btnTeleport.Text = "Toggle Teleport: " .. (teleportEnabled and "ON" or "OFF")
 
-    btnSpeed.BackgroundColor3 = speedEnabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(100, 100, 100)
-    btnFly.BackgroundColor3 = flying and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(100, 100, 100)
-    btnNoclip.BackgroundColor3 = noclip and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(100, 100, 100)
-    btnInvul.BackgroundColor3 = invulnerable and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(100, 100, 100)
-    btnTeleport.BackgroundColor3 = teleportEnabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(100, 100, 100)
+    tweenButtonColor(btnSpeed, speedEnabled)
+    tweenButtonColor(btnFly, flying)
+    tweenButtonColor(btnNoclip, noclip)
+    tweenButtonColor(btnInvul, invulnerable)
+    tweenButtonColor(btnTeleport, teleportEnabled)
 end
 
+-- State setters that update GUI as well
 local function setSpeed(enabled)
     speedEnabled = enabled
     humanoid.WalkSpeed = enabled and walkSpeedFast or walkSpeedNormal
@@ -197,8 +207,8 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
 local frame = Instance.new("Frame")
-local collapsedHeight = 40       -- Height when collapsed
-local expandedHeight = 250       -- Enough height for all buttons with spacing
+local collapsedHeight = 40
+local expandedHeight = 250
 
 frame.Size = UDim2.new(0, 260, 0, expandedHeight)
 frame.Position = UDim2.new(0.02, 0, 0.65, 0)
@@ -218,7 +228,7 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 20
 title.Parent = frame
 
--- Collapse toggle button for the GUI
+-- Collapse toggle button
 local isCollapsed = false
 
 local btnCollapse = Instance.new("TextButton")
@@ -249,39 +259,49 @@ local function createButton(text, posY)
     return btn
 end
 
--- Buttons with vertical positions spaced by 40 pixels starting at 40
-local btnSpeed = createButton("Toggle Speed: ON", 40)
-local btnFly = createButton("Toggle Fly: OFF", 80)
-local btnNoclip = createButton("Toggle Noclip: OFF", 120)
-local btnInvul = createButton("Toggle Invulnerability: OFF", 160)
-local btnTeleport = createButton("Toggle Teleport: ON", 200)
+btnSpeed = createButton("Toggle Speed: ON", 40)
+btnFly = createButton("Toggle Fly: OFF", 80)
+btnNoclip = createButton("Toggle Noclip: OFF", 120)
+btnInvul = createButton("Toggle Invulnerability: OFF", 160)
+btnTeleport = createButton("Toggle Teleport: ON", 200)
+
+local tweenTime = 0.3
 
 local function toggleCollapse()
     isCollapsed = not isCollapsed
-    if isCollapsed then
-        btnSpeed.Visible = false
-        btnFly.Visible = false
-        btnNoclip.Visible = false
-        btnInvul.Visible = false
-        btnTeleport.Visible = false
 
-        frame.Size = UDim2.new(0, 260, 0, collapsedHeight)
-        btnCollapse.Text = "+"
-    else
-        btnSpeed.Visible = true
-        btnFly.Visible = true
-        btnNoclip.Visible = true
-        btnInvul.Visible = true
-        btnTeleport.Visible = true
+    local targetSize = isCollapsed and UDim2.new(0, 260, 0, collapsedHeight) or UDim2.new(0, 260, 0, expandedHeight)
+    TweenService:Create(frame, TweenInfo.new(tweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize}):Play()
 
-        frame.Size = UDim2.new(0, 260, 0, expandedHeight)
-        btnCollapse.Text = "–"
+    -- Animate toggle button text fade out, then change, then fade in
+    TweenService:Create(btnCollapse, TweenInfo.new(tweenTime / 2), {TextTransparency = 1}):Play()
+    delay(tweenTime / 2, function()
+        btnCollapse.Text = isCollapsed and "+" or "–"
+        TweenService:Create(btnCollapse, TweenInfo.new(tweenTime / 2), {TextTransparency = 0}):Play()
+    end)
+
+    for _, btn in ipairs({btnSpeed, btnFly, btnNoclip, btnInvul, btnTeleport}) do
+        if isCollapsed then
+            -- Fade out and then hide
+            local tween = TweenService:Create(btn, TweenInfo.new(tweenTime), {BackgroundTransparency = 1, TextTransparency = 1})
+            tween:Play()
+            tween.Completed:Connect(function()
+                btn.Visible = false
+                btn.BackgroundTransparency = 0
+                btn.TextTransparency = 0
+            end)
+        else
+            -- Show and fade in
+            btn.Visible = true
+            btn.BackgroundTransparency = 1
+            btn.TextTransparency = 1
+            TweenService:Create(btn, TweenInfo.new(tweenTime), {BackgroundTransparency = 0, TextTransparency = 0}):Play()
+        end
     end
 end
 
 btnCollapse.MouseButton1Click:Connect(toggleCollapse)
 
--- Connect buttons click to toggles
 btnSpeed.MouseButton1Click:Connect(function()
     setSpeed(not speedEnabled)
 end)
@@ -302,9 +322,52 @@ btnTeleport.MouseButton1Click:Connect(function()
     setTeleport(not teleportEnabled)
 end)
 
--- Initialize states and update GUI buttons text/colors
+-- Initialize GUI state and button appearances
 setSpeed(speedEnabled)
 setNoclip(noclip)
 setInvulnerability(invulnerable)
 setTeleport(teleportEnabled)
 updateButtonStates()
+
+
+-- Optional: Custom drag script for smoother, more reliable dragging
+--[[
+local dragging = false
+local dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    frame.Position = UDim2.new(
+        startPos.X.Scale,
+        startPos.X.Offset + delta.X,
+        startPos.Y.Scale,
+        startPos.Y.Offset + delta.Y
+    )
+end
+
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+]]
